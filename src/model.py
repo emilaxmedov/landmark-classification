@@ -6,65 +6,43 @@ import torch.nn.functional as F
 # define the CNN architecture
 class MyModel(nn.Module):
     def __init__(self, num_classes: int = 1000, dropout: float = 0.7) -> None:
+        super(MyModel, self).__init__()
 
-        super().__init__()
+        self.block1 = self._build_block(3, 64, dropout)
+        self.block2 = self._build_block(64, 128, dropout)
+        self.block3 = self._build_block(128, 256, dropout)
+        self.block4 = self._build_block(256, 512, dropout)
+        self.block5 = self._build_block(512, 1024, dropout)
+        self.block6 = self._build_block(1024, 2048, dropout)
 
-       # YOUR CODE HERE
-        # Define a CNN architecture. Remember to use the variable num_classes
-        # to size appropriately the output of your classifier, and if you use
-        # the Dropout layer, use the variable "dropout" to indicate how much
-        # to use (like nn.Dropout(p=dropout))
-        
-        # activation function 
-        self.activation = torch.nn.functional.relu
-        
-        # Dropout
-        self.dropout = nn.Dropout(dropout)
+        self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
 
-        
-        # Cov. 1
-        self.conv1 = nn.Conv2d(in_channels= 3, out_channels= 32, kernel_size= 3, padding= 1) 
-        self.pool1 = nn.MaxPool2d(2, 2)
-        self.batchNorm1 = nn.BatchNorm2d(32)
+        self.fc = nn.Linear(2048, num_classes)
 
-        
-        # Cov. 2
-        self.conv2 = nn.Conv2d(in_channels= 32, out_channels= 64, kernel_size= 3, padding= 1)
-        self.pool2 = nn.MaxPool2d(2, 2)
-        self.batchNorm2 = nn.BatchNorm2d(64)
-        
-        # Cov. 3
-        self.conv3 = nn.Conv2d(in_channels= 64, out_channels= 128, kernel_size= 3, padding= 1)
-        self.pool3 = nn.MaxPool2d(2, 2)
-        self.batchNorm3 = nn.BatchNorm2d(128)
 
-        # Cov. 4
-        self.conv4 = nn.Conv2d(in_channels= 128, out_channels= 256, kernel_size= 3, padding= 1)
-        self.pool4 = nn.MaxPool2d(2, 2)
-        self.batchNorm4 = nn.BatchNorm2d(256)
-        
-        # Flattening
-        self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(14*14*256, 512)
-        self.batchNorm5 = nn.BatchNorm1d(512)
+    def _build_block(self, in_channels, out_channels, dropout):
+        return nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Dropout2d(dropout)
+        )
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:      
+        x = self.block1(x)
+        x = self.block2(x)
+        x = self.block3(x)
+        x = self.block4(x)
+        x = self.block5(x)
+        x = self.block6(x)
 
-        self.fc2 = nn.Linear(512, num_classes)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # YOUR CODE HERE: process the input tensor through the
-        # feature extractor, the pooling and the final linear
-        # layers (if appropriate for the architecture chosen)        
-        
-        x = self.pool1(self.activation(self.batchNorm1(self.conv1(x)))) 
-        x = self.pool2(self.activation(self.batchNorm2(self.conv2(x))))
-        x = self.pool3(self.activation(self.batchNorm3(self.conv3(x)))) 
-        x = self.pool4(self.activation(self.batchNorm4(self.conv4(x)))) 
-
-        x = self.flatten(x)
-        
-        x = self.activation(self.batchNorm5(self.dropout(self.fc1(x))))
-        
-        x = self.fc2(x)
+        x = self.global_avg_pool(x)
+        x = x.view(x.size(0), -1) 
+        x = self.fc(x)
                 
         return x
 
