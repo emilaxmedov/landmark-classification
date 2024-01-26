@@ -1,4 +1,5 @@
 import tempfile
+import optuna
 
 import torch
 import numpy as np
@@ -203,6 +204,43 @@ def one_epoch_test(test_dataloader, model, loss):
 
     return test_loss
 
+def objective(trial, data_loaders, n_epochs, model_class, num_classes, loss_fn):
+    # Suggest hyperparameters
+    lr = trial.suggest_loguniform('lr', 1e-5, 1e-1)
+    dropout = trial.suggest_uniform('dropout', 0.1, 0.5)
+
+    # Create the model with suggested hyperparameters
+    model = model_class(num_classes=num_classes, dropout=dropout)
+
+    # Setup optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+    # Check for GPU availability
+    if torch.cuda.is_available():
+        model.cuda()
+
+    # Training and validation loop
+    for epoch in range(n_epochs):
+        train_loss = train_one_epoch(data_loaders["train"], model, optimizer, loss_fn)
+
+        valid_loss = valid_one_epoch(data_loaders["valid"], model, loss_fn)
+
+    return valid_loss  # Optuna tries to minimize this value
+
+def optuna_run(data_loaders, model_class, num_classes, loss_fn, n_epochs, n_trials):
+    study = optuna.create_study(direction='minimize')
+    study.optimize(lambda trial: objective(trial, data_loaders, n_epochs, model_class, num_classes, loss_fn),
+                   n_trials=n_trials, timeout=600)
+
+    # Output the results of the study
+    print("Number of finished trials: ", len(study.trials))
+    print("Best trial:")
+    trial = study.best_trial
+
+    print("  Value: ", trial.value)
+    print("  Params: ")
+    for key, value in trial.params.items():
+        print(f"    {key}: {value}")
 
     
 ######################################################################################

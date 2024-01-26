@@ -45,6 +45,9 @@ def get_data_loaders(
             transforms.Resize(256),
             transforms.RandomCrop(224),
             transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(15),  
+            transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),  
+            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1), shear=10),  
             transforms.ToTensor(),
             transforms.Normalize(mean, std)
         ]),
